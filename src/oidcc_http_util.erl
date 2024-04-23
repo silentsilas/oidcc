@@ -6,6 +6,8 @@
 
 -feature(maybe_expr, enable).
 
+-define(CERT_PATH, "./keycloak/cert.crt").
+
 -export([basic_auth_header/2]).
 -export([bearer_auth_header/1]).
 -export([request/4]).
@@ -90,15 +92,14 @@ request(Method, Request, TelemetryOpts, RequestOpts) ->
     TelemetryTopic = maps:get(topic, TelemetryOpts),
     TelemetryExtraMeta = maps:get(extra_meta, TelemetryOpts, #{}),
     Timeout = maps:get(timeout, RequestOpts, timer:minutes(1)),
-    SslOpts = maps:get(ssl, RequestOpts, undefined),
-    HttpProfile = maps:get(httpc_profile, RequestOpts, default),
+    SslOpts = maps:get(ssl, RequestOpts, []),
+
+    % Include the certificate in the SSL options
+    UpdatedSslOpts = [{cacertfile, ?CERT_PATH} | SslOpts],
 
     HttpOpts0 = [{timeout, Timeout}],
-    HttpOpts =
-        case SslOpts of
-            undefined -> HttpOpts0;
-            _Opts -> [{ssl, SslOpts} | HttpOpts0]
-        end,
+    HttpOpts = [{ssl, UpdatedSslOpts} | HttpOpts0],  % Merge SSL options with other HTTP options
+    HttpProfile = maps:get(httpc_profile, RequestOpts, default),
 
     telemetry:span(
         TelemetryTopic,
